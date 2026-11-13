@@ -7,20 +7,19 @@ $('form').addEventListener('submit', async (e) => {
   try {
     $('go').disabled = true;
     status(out, 'Unlocking…');
-    const { token, key } = await unlock($('code').value);
-    const items = await (await api.call(token, '/api/files')).json();
-    $('form').hidden = true;
+    const meta = await loadMeta();
+    if (!meta) throw new Error('Nothing stored yet. Upload a PDF first.');
+    const key = await unlock($('code').value, meta);
+    const items = await loadIndex();
+    $('form').hidden = true; $('delrow').hidden = false;
     out.textContent = ''; out.className = 'status';
-    render(items, token, key);
-  } catch (err) {
-    status(out, err.message || String(err), 'err');
-  } finally { $('go').disabled = false; }
+    render(items, key);
+  } catch (err) { status(out, err.message || String(err), 'err'); }
+  finally { $('go').disabled = false; }
 });
 
-async function render(items, token, key) {
-  const list = $('list');
-  list.hidden = false;
-  list.textContent = '';
+async function render(items, key) {
+  const list = $('list'); list.hidden = false; list.textContent = '';
   if (!items.length) { list.textContent = 'No files yet.'; return; }
   for (const it of items) {
     let name = 'file.pdf';
@@ -34,7 +33,9 @@ async function render(items, token, key) {
       ev.preventDefault();
       try {
         status($('msg'), 'Decrypting ' + name + '…');
-        const buf = new Uint8Array(await (await api.call(token, '/api/files/' + it.id)).arrayBuffer());
+        const r = await fetch('store/' + it.id + '.bin', { cache: 'no-store' });
+        if (!r.ok) throw new Error('File not published yet (' + r.status + '). GitHub Pages can take a minute or two; try again.');
+        const buf = new Uint8Array(await r.arrayBuffer());
         const pdf = await aesDecrypt(key, buf.slice(0, 12), buf.slice(12));
         const url = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
         const d = document.createElement('a'); d.href = url; d.download = name; d.click();
@@ -43,10 +44,18 @@ async function render(items, token, key) {
       } catch (err) { status($('msg'), err.message || String(err), 'err'); }
     });
     del.addEventListener('click', async () => {
+      const token = $('token').value.trim();
+      if (!token) return status($('msg'), 'Paste a GitHub token below to delete.', 'err');
       if (!confirm('Delete ' + name + '?')) return;
-      try { await api.call(token, '/api/files/' + it.id, { method: 'DELETE' }); row.remove(); } catch (err) { status($('msg'), err.message, 'err'); }
+      try {
+        const gh = github(token);
+        const idx = await gh.readJson('store/index.json');
+        if (idx) await gh.put('store/index.json', enc.encode(JSON.stringify(idx.data.filter((x) => x.id !== it.id))), 'Update index', idx.sha);
+        const f = await gh.get('store/' + it.id + '.bin');
+        if (f) await gh.del('store/' + it.id + '.bin', f.sha, 'Delete encrypted file');
+        row.remove(); status($('msg'), 'Deleted.', 'ok');
+      } catch (err) { status($('msg'), err.message, 'err'); }
     });
-    row.append(a, meta, del);
-    list.append(row);
+    row.append(a, meta, del); list.append(row);
   }
 }

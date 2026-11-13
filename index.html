@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+<title>Private upload</title>
+<link rel="stylesheet" href="style.css">
+</head><body><main>
+<h1>Upload a PDF</h1>
+<p class="sub">Encrypted in your browser, then committed to this repo's <code>store/</code> folder. GitHub never sees your code or the file contents.</p>
+<form id="form">
+  <div id="first" class="note" hidden><b>First use:</b> the code you enter now becomes your vault code. It can't be recovered.</div>
+  <label for="file">PDF file</label><input id="file" type="file" accept="application/pdf,.pdf">
+  <label for="code">Your code (long passphrase)</label><input id="code" type="password" autocomplete="off" required>
+  <div id="confirmRow" hidden><label for="code2">Repeat code</label><input id="code2" type="password" autocomplete="off"></div>
+  <label for="token">GitHub token (Contents: read &amp; write on this repo; not stored)</label><input id="token" type="password" autocomplete="off" required>
+  <button id="go" type="submit">Encrypt &amp; upload</button>
+</form>
+<div id="status" class="status" role="status"></div>
+<div id="result" class="note" hidden>Stored. It appears on <a href="vault.html">the vault page</a> after GitHub Pages rebuilds (a minute or two).</div>
+</main>
+<script src="config.js"></script>
+<script src="vendor/pdf-lib-plus-encrypt.min.js"></script>
+<script src="vault.js"></script>
+<script src="upload.js"></script>
+</body></html>
